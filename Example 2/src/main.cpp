@@ -1,4 +1,3 @@
-
 #include <stdlib.h>
 #include <Arduino.h>
 #include <FreeRTOSConfig.h>
@@ -17,7 +16,7 @@ void toggleLED(void *parameter) {
   while (1) {
     digitalWrite(led_pin, HIGH);
     vTaskDelay(led_delay / portTICK_PERIOD_MS);
-    Serial.print("Led ON!\n");
+    Serial.print("Led works!\n");
     digitalWrite(led_pin, LOW);
     vTaskDelay(led_delay / portTICK_PERIOD_MS);
   }
@@ -50,29 +49,11 @@ void readSerial(void *parameters) {
 
 void setup() {
   pinMode(led_pin, OUTPUT);
-
-  
   Serial.begin(115200);
   vTaskDelay(1000 / portTICK_PERIOD_MS);
-  Serial.println("Multi-task LED Demo");
   Serial.println("Enter a number in milliseconds to change the LED delay.");
-  xTaskCreatePinnedToCore(  
-            toggleLED,     
-            "Toggle LED",   
-            1024,           
-            NULL,           
-            1,              
-            NULL,           
-            app_cpu);       
-
-  xTaskCreatePinnedToCore(  
-            readSerial,     
-            "Read Serial",  
-            1024,           
-            NULL,           
-            1,              
-            NULL,           
-            app_cpu);       
+  xTaskCreatePinnedToCore(toggleLED, "Toggle LED", 1024, NULL, 1, NULL, app_cpu);       
+  xTaskCreatePinnedToCore(  readSerial, "Read Serial", 1024, NULL, 1, NULL, app_cpu);       
   vTaskDelete(NULL);
 }
 
