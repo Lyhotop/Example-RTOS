@@ -29,14 +29,11 @@ void blinkLed(void *param)
   {
     if (xQueueReceive(delay_que, (void *)&delay, 1) == pdTRUE)
     {
-
       strcpy(msg.body, "Message received ");
       msg.count = 1;
       xQueueSend(msg_que, (void *)&msg, 10);
     }
-
     digitalWrite(led, HIGH);
-
     vTaskDelay(delay / portTICK_PERIOD_MS);
     Serial.println("Led works!\n");
     digitalWrite(led, LOW);
@@ -92,7 +89,6 @@ void readTextFromSerial(void *parameters)
         {
           Serial.println(buffer);
         }
-
         memset(buffer, 0, len);
         idx = 0;
       }

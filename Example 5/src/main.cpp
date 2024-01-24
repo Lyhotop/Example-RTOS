@@ -1,107 +1,81 @@
+#include <stdlib.h>
 #include <Arduino.h>
 #include <FreeRTOSConfig.h>
-/**
- * FreeRTOS Mutex Solution
- * 
- * Pass a parameter to a task using a mutex.
- * 
- * Date: January 20, 2021
- * Author: Shawn Hymel
- * License: 0BSD
- */
 
-// You'll likely need this on vanilla FreeRTOS
-//#include <semphr.h>
-
-// Use only core 1 for demo purposes
 #if CONFIG_FREERTOS_UNICORE
-  static const BaseType_t app_cpu = 0;
+static const BaseType_t app_cpu = 0;
 #else
-  static const BaseType_t app_cpu = 1;
+static const BaseType_t app_cpu = 1;
 #endif
 
-// Pins (change this if your Arduino board does not have LED_BUILTIN defined)
-static const int led_pin = 1;
+const uint8_t led = 1;
+static int delayLed = 0;
+SemaphoreHandle_t xMutex;
 
-// Globals
-static SemaphoreHandle_t mutex;
-
-//*****************************************************************************
-// Tasks
-
-// Blink LED based on rate passed by parameter
-void blinkLED(void *parameters) {
-
-  // Copy the parameter into a local variable
-  int num = *(int *)parameters;
-
-  // Release the mutex so that the creating function can finish
-  xSemaphoreGive(mutex);
-
-  // Print the parameter
-  Serial.print("Received: ");
-  Serial.println(num);
-
-  // Configure the LED pin
-  pinMode(led_pin, OUTPUT);
-
-  // Blink forever and ever
-  while (1) {
-    digitalWrite(led_pin, HIGH);
-    vTaskDelay(num / portTICK_PERIOD_MS);
-    digitalWrite(led_pin, LOW);
-    vTaskDelay(num / portTICK_PERIOD_MS);
+void task1(void *parameter)
+{
+  while (1)
+  {
+    if (xSemaphoreTake(xMutex, portMAX_DELAY))
+    {
+      Serial.println("Task1: Acquired mutex!");
+      while (delayLed != 10)
+      {
+        digitalWrite(led, HIGH);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+        Serial.print("Led works! ");
+        Serial.println(delayLed);
+        digitalWrite(led, LOW);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+        delayLed++;
+      }
+      xSemaphoreGive(xMutex);
+      Serial.println("Task1: Released mutex!");
+    }
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 
-//*****************************************************************************
-// Main (runs as its own task with priority 1 on core 1)
-
-void setup() {
-
-  long int delay_arg;
-
-  // Configure Serial
-  Serial.begin(115200);
-
-  // Wait a moment to start (so we don't miss Serial output)
-  vTaskDelay(1000 / portTICK_PERIOD_MS);
-  Serial.println();
-  Serial.println("---FreeRTOS Mutex Solution---");
-  Serial.println("Enter a number for delay (milliseconds)");
-
-  // Wait for input from Serial
-  while (Serial.available() <= 0);
-
-  // Read integer value
-  delay_arg = Serial.parseInt();
-  Serial.print("Sending: ");
-  Serial.println(delay_arg);
-  
-  // Create mutex before starting tasks
-  mutex = xSemaphoreCreateMutex();
-
-  // Take the mutex
-  xSemaphoreTake(mutex, portMAX_DELAY);
-
-  // Start task 1
-  xTaskCreatePinnedToCore(blinkLED,
-                          "Blink LED",
-                          1024,
-                          (void *)&delay_arg,
-                          1,
-                          NULL,
-                          0);
-
-  // Do nothing until mutex has been returned (maximum delay)
-  xSemaphoreTake(mutex, portMAX_DELAY);
-
-  // Show that we accomplished our task of passing the stack-based argument
-  Serial.println("Done!");
+void task2(void *parameter)
+{
+  while (1)
+  {
+    if (xSemaphoreTake(xMutex, portMAX_DELAY))
+    {
+      Serial.println("Task2: Acquired mutex!");
+      while (delayLed != 0)
+      {
+        digitalWrite(led, HIGH);
+        vTaskDelay(25 / portTICK_PERIOD_MS);
+        Serial.print("Led works! ");
+        Serial.println(delayLed);
+        digitalWrite(led, LOW);
+        vTaskDelay(25 / portTICK_PERIOD_MS);
+        delayLed--;
+      }
+      xSemaphoreGive(xMutex);
+      Serial.println("Task2: Released mutex!");
+    }
+    vTaskDelay(700 / portTICK_PERIOD_MS);
+  }
 }
 
-void loop() {
-  
-  // Do nothing but allow yielding to lower-priority tasks
-  vTaskDelay(1000 / portTICK_PERIOD_MS);
+void setup()
+{
+  Serial.begin(115200);
+  xMutex = xSemaphoreCreateMutex();
+  if (xMutex != NULL)
+  {
+    xTaskCreate(task1, "Task1", 1000, NULL, 1, NULL);
+    xTaskCreate(task2, "Task2", 1000, NULL, 1, NULL);
+    // vTaskStartScheduler();
+  }
+  else
+  {
+    Serial.println("Mutex creation failed!");
+  }
+}
+
+void loop()
+{
 }
